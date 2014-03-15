@@ -2,7 +2,6 @@
 namespace Paranoia\Payment;
 
 use \StdClass;
-
 use Paranoia\Payment\Exception\UnknownAdapter;
 use Paranoia\Payment\Exception\UnknownPos;
 use Paranoia\Payment\Adapter\AdapterInterface;

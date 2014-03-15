@@ -3,6 +3,7 @@ namespace Paranoia\EventManager\Listener;
 
 use Paranoia\EventManager\EventParameter;
 use Paranoia\EventManager\Exception\UndefinedListenerMethod;
+
 abstract class ListenerAbstract
 {
     /**

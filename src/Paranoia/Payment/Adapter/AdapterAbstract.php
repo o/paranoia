@@ -33,7 +33,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
     protected $_config;
 
     /**
-     * @var \Communication\Adapter\CommunicationInterface
+     * @var \Paranoia\Communication\Adapter\CommunicationInterface
      */
     protected $_connector;
 
