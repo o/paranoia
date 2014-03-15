@@ -119,7 +119,6 @@ class Est extends AdapterAbstract implements AdapterInterface
     protected function _buildRefundRequest(Request $request)
     {
         $amount      = $this->_formatAmount($request->getAmount());
-        $installment = $this->_formatInstallment($request->getInstallment());
         $currency    = $this->_formatCurrency($request->getCurrency());
         $type        = $this->_getProviderTransactionType($request->getTransactionType());
         $requestData = array('Type'     => $type,

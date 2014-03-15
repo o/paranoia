@@ -7,17 +7,14 @@ use Paranoia\Payment\Request;
 use Paranoia\Payment\Response;
 use Paranoia\Payment\TransferInterface;
 use Paranoia\Payment\Exception\UnknownTransactionType;
-
+use Paranoia\Payment\Exception\UnknownCurrencyCode;
+use Paranoia\Payment\Exception\ConfigurationError;
 use Paranoia\Communication\Connector;
 
 use Paranoia\EventManager\EventManagerAbstract;
 
 abstract class AdapterAbstract extends EventManagerAbstract
 {
-    const CURRENCY_TRY = 'TRY';
-    const CURRENCY_USD = 'USD';
-    const CURRENCY_EUR = 'EUR';
-
     const EVENT_ON_TRANSACTION_SUCCESSFUL = 'OnTransactionSuccessful';
     const EVENT_ON_TRANSACTION_FAILED = 'OnTransactionFailed';
     const EVENT_ON_EXCEPTION = 'OnException';
@@ -49,7 +46,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * build request data for preauthorization transaction.
      *
-     * @param \Payment\Request $request
+     * @param \Paranoia\Payment\Request $request
      * @return mixed
      */
     abstract protected function _buildPreauthorizationRequest(Request $request);
@@ -57,7 +54,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * build request data for postauthorization transaction.
      *
-     * @param \Payment\Request $request
+     * @param \Paranoia\Payment\Request $request
      * @return mixed
      */
     abstract protected function _buildPostAuthorizationRequest(Request $request);
@@ -65,7 +62,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * build request data for sale transaction.
      *
-     * @param \Payment\Request $request
+     * @param \Paranoia\Payment\Request $request
      * @return mixed
      */
     abstract protected function _buildSaleRequest(Request $request);
@@ -73,7 +70,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * build request data for refund transaction.
      *
-     * @param \Payment\Request $request
+     * @param \Paranoia\Payment\Request $request
      * @return mixed
      */
     abstract protected function _buildRefundRequest(Request $request);
@@ -81,7 +78,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * build request data for cancel transaction.
      *
-     * @param \Payment\Request $request
+     * @param \Paranoia\Payment\Request $request
      * @return mixed
      */
     abstract protected function _buildCancelRequest(Request $request);
@@ -89,8 +86,9 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      *  build complete raw data for the specified request.
      *
-     * @param \Payment\Request
+     * @param \Paranoia\Payment\Request $request
      * @param string $requestBuilder
+     * @internal param $ \Payment\Request
      * @return mixed
      */
     abstract protected function _buildRequest(Request $request, $requestBuilder);
@@ -99,14 +97,14 @@ abstract class AdapterAbstract extends EventManagerAbstract
      * parses response from returned provider.
      *
      * @param string $rawResponse
-     * @return \Payment\Response\PaymentResponse
+     * @return \Paranoia\Payment\Response\PaymentResponse
      */
     abstract protected function _parseResponse($rawResponse);
 
     /**
      * returns connector object.
      *
-     * @return \Communication\Adapter\AdapterInterface
+     * @return \Paranoia\Communication\Adapter\AdapterInterface
      */
     public function getConnector()
     {
@@ -119,6 +117,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
      * @param string $url
      * @param mixed $data
      * @param array $options
+     * @throws \ErrorException|\Exception
      * @return mixed
      */
     protected function _sendRequest($url, $data, $options=null)
@@ -126,7 +125,6 @@ abstract class AdapterAbstract extends EventManagerAbstract
         try {
             return $this->getConnector()->sendRequest($url, $data, $options);
         } catch(\ErrorException $e) {
-            $backtrace = debug_backtrace();
             $this->_triggerEvent(self::EVENT_ON_EXCEPTION,
                                  array('exception' => $e,
                                        'request'   => $this->_maskRequest($this->getConnector()->getLastSentRequest()),
@@ -138,20 +136,21 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * formats the specified string currency code by iso currency codes.
      * @param string $currency
+     * @throws \Paranoia\Payment\Exception\ConfigurationError
+     * @throws \Paranoia\Payment\Exception\UnknownCurrencyCode
      * @return integer
      */
     protected function _formatCurrency($currency)
     {
-        switch($currency) {
-            case self::CURRENCY_TRY:
-                return '949';
-            case self::CURRENCY_USD:
-                return '840';
-            case self::CURRENCY_EUR:
-                return '978';
-            default:
-                return '949';
+        if(!property_exists($this->_config, 'currencyCodes')) {
+            throw new ConfigurationError(
+                'Currency codes are not defined in configuration.'
+            );
         }
+        if(!property_exists($this->_config->currencyCodes, $currency)) {
+            throw new UnknownCurrencyCode(sprintf('%s is unknown currency.', $currency));
+        }
+        return $this->_config->currencyCodes->{$currency};
     }
 
     /**
@@ -193,7 +192,7 @@ abstract class AdapterAbstract extends EventManagerAbstract
 
     /**
      * stamps transfer objects with time and transaction type.
-     * @param \Payment\TransferInterface $transfer
+     * @param \Paranoia\Payment\TransferInterface $transfer
      * @param string $transactionType
      */
     private function _stamp(TransferInterface $transfer, $transactionType)
@@ -205,8 +204,9 @@ abstract class AdapterAbstract extends EventManagerAbstract
     /**
      * returns transaction code by expected provider.
      *
-     * @param string $transcationType
-     * @throws UnknownTransactionType
+     * @param $transactionType
+     * @throws \Paranoia\Payment\Exception\UnknownTransactionType
+     * @internal param string $transcationType
      * @return string
      */
     protected function _getProviderTransactionType($transactionType)
